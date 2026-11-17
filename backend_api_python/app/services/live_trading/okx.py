@@ -589,12 +589,21 @@ class OkxClient(BaseRestClient):
         inst_id = to_okx_spot_inst_id(symbol) if mt == "spot" else to_okx_swap_inst_id(symbol)
         try:
             raw = self._signed_request("GET", "/api/v5/account/trade-fee", params={"instType": inst_type, "instId": inst_id})
+            # Keep the provider payload visible for diagnosing fee tiers and
+            # account permissions without logging credentials or signatures.
+            logger.info(
+                "OKX fee rate raw API response endpoint=/api/v5/account/trade-fee "
+                "instType=%s instId=%s response=%s",
+                inst_type,
+                inst_id,
+                raw,
+            )
             data = (raw.get("data") or []) if isinstance(raw, dict) else []
             if data and isinstance(data[0], dict):
                 rec = data[0]
-                maker = abs(float(rec.get("maker") or rec.get("makerU") or 0))
-                taker = abs(float(rec.get("taker") or rec.get("takerU") or 0))
-                if maker > 0 or taker > 0:
+                if any(key in rec for key in ("maker", "makerU", "taker", "takerU")):
+                    maker = abs(float(rec.get("maker") or rec.get("makerU") or 0))
+                    taker = abs(float(rec.get("taker") or rec.get("takerU") or 0))
                     return {"maker": maker, "taker": taker}
         except Exception as e:
             logger.warning(f"OKX get_fee_rate({symbol}, market_type={mt}, inst_id={inst_id}) failed: {e}")

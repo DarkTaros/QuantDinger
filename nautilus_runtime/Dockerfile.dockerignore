@@ -1,0 +1,10 @@
+**
+!nautilus_runtime/
+!nautilus_runtime/requirements.lock
+!nautilus_runtime/qd_nautilus/
+!nautilus_runtime/qd_nautilus/**
+!backend_api_python/
+!backend_api_python/qd_arbitrage/
+!backend_api_python/qd_arbitrage/**
+**/__pycache__
+**/*.pyc

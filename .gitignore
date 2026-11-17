@@ -106,3 +106,6 @@ backend_api_python/data/memory/
 # Docker
 # ========================
 docker-compose.override.yml
+
+# Immutable arbitrage datasets and simulation artifacts
+/data/arbitrage/

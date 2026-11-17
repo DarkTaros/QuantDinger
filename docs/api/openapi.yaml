@@ -2434,6 +2434,799 @@ paths:
       operationId: getApiBacktestGet
       summary: Get Api Backtest Get
       x-visibility: internal
+  /api/arbitrage/templates:
+    get:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      operationId: getApiArbitrageTemplates
+      summary: Get Api Arbitrage Templates
+      x-visibility: internal
+  /api/arbitrage/instruments:
+    get:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      operationId: getApiArbitrageInstruments
+      summary: Get Api Arbitrage Instruments
+      x-visibility: internal
+  /api/arbitrage/datasets:
+    get:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      operationId: getApiArbitrageDatasets
+      summary: Get Api Arbitrage Datasets
+      x-visibility: internal
+  /api/arbitrage/datasets/import:
+    post:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+        '202':
+          description: Durably queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 1
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      jobId:
+                        type: string
+                      runId:
+                        type: string
+                        nullable: true
+                      status:
+                        type: string
+                      duplicate:
+                        type: boolean
+      tags:
+      - Strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - pair
+              - start
+              - end
+              properties:
+                pair:
+                  type: string
+                  enum:
+                  - BTC/USDT
+                  - ETH/USDT
+                  - SOL/USDT
+                start:
+                  type: string
+                  format: date-time
+                  description: Timezone required. Normalized to UTC; interval is [start,end).
+                end:
+                  type: string
+                  format: date-time
+                  description: Timezone required. Normalized to UTC; interval is [start,end).
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          type: string
+          maxLength: 120
+        description: Scoped by authenticated user and job kind; reuse with another
+          config returns 409.
+      operationId: postApiArbitrageDatasetsImport
+      summary: Post Api Arbitrage Datasets Import
+      x-visibility: internal
+  /api/arbitrage/backtests:
+    post:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+        '202':
+          description: Durably queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 1
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      jobId:
+                        type: string
+                      runId:
+                        type: string
+                        nullable: true
+                      status:
+                        type: string
+                      duplicate:
+                        type: boolean
+      tags:
+      - Strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                schemaVersion:
+                  type: integer
+                  enum:
+                  - 1
+                engineVersion:
+                  type: string
+                  enum:
+                  - 2.0.0rc9
+                template:
+                  type: string
+                  enum:
+                  - cross_venue_taker_v1
+                templateVersion:
+                  type: integer
+                  enum:
+                  - 1
+                mode:
+                  type: string
+                  enum:
+                  - backtest
+                pair:
+                  type: string
+                  enum:
+                  - BTC/USDT
+                  - ETH/USDT
+                  - SOL/USDT
+                seed:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                  maximum: 2147483647
+                venues:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    BINANCE:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        quoteBalance:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '10000'
+                        baseBalance:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '0.1'
+                        takerFeeBps:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '10'
+                        latencyMs:
+                          type: integer
+                          minimum: 0
+                          default: 50
+                          maximum: 60000
+                    OKX:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        quoteBalance:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '10000'
+                        baseBalance:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '0.1'
+                        takerFeeBps:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '10'
+                        latencyMs:
+                          type: integer
+                          minimum: 0
+                          default: 50
+                          maximum: 60000
+                  required:
+                  - BINANCE
+                  - OKX
+                strategy:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    notional:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '100'
+                    minEdgeBps:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '5'
+                    maxQuoteAgeMs:
+                      type: integer
+                      minimum: 1
+                      default: 500
+                      maximum: 60000
+                    protectionBps:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '5'
+                    timeoutMs:
+                      type: integer
+                      minimum: 1
+                      default: 2000
+                      maximum: 60000
+                    compensationBps:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '20'
+                risk:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    maxExposureQuote:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '200'
+                    maxCycles:
+                      type: integer
+                      minimum: 1
+                      default: 100000
+                      maximum: 1000000
+                start:
+                  type: string
+                  format: date-time
+                  description: Timezone required. Normalized to UTC; interval is [start,end).
+                end:
+                  type: string
+                  format: date-time
+                  description: Timezone required. Normalized to UTC; interval is [start,end).
+                datasetId:
+                  type: string
+                  pattern: ^[0-9a-f]{64}$
+              required:
+              - start
+              - end
+              - datasetId
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          type: string
+          maxLength: 120
+        description: Scoped by authenticated user and job kind; reuse with another
+          config returns 409.
+      operationId: postApiArbitrageBacktests
+      summary: Post Api Arbitrage Backtests
+      x-visibility: internal
+  /api/arbitrage/jobs/{job_id}:
+    get:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      operationId: getApiArbitrageJobsJobId
+      summary: Get Api Arbitrage Jobs Job Id
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      x-visibility: internal
+    parameters:
+    - in: path
+      name: job_id
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /api/arbitrage/jobs/{job_id}/cancel:
+    post:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      operationId: postApiArbitrageJobsJobIdCancel
+      summary: Post Api Arbitrage Jobs Job Id Cancel
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      x-visibility: internal
+    parameters:
+    - in: path
+      name: job_id
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /api/arbitrage/runs:
+    get:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      operationId: getApiArbitrageRuns
+      summary: Get Api Arbitrage Runs
+      x-visibility: internal
+  /api/arbitrage/runs/{run_id}:
+    get:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      operationId: getApiArbitrageRunsRunId
+      summary: Get Api Arbitrage Runs Run Id
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      x-visibility: internal
+    parameters:
+    - in: path
+      name: run_id
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /api/arbitrage/runs/{run_id}/cycles:
+    get:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      operationId: getApiArbitrageRunsRunIdCycles
+      summary: Get Api Arbitrage Runs Run Id Cycles
+      x-visibility: internal
+    parameters:
+    - in: path
+      name: run_id
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /api/arbitrage/runs/{run_id}/events:
+    get:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      operationId: getApiArbitrageRunsRunIdEvents
+      summary: Get Api Arbitrage Runs Run Id Events
+      x-visibility: internal
+    parameters:
+    - in: path
+      name: run_id
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /api/arbitrage/paper-sessions:
+    post:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+        '202':
+          description: Durably queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 1
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      jobId:
+                        type: string
+                      runId:
+                        type: string
+                        nullable: true
+                      status:
+                        type: string
+                      duplicate:
+                        type: boolean
+      tags:
+      - Strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                schemaVersion:
+                  type: integer
+                  enum:
+                  - 1
+                engineVersion:
+                  type: string
+                  enum:
+                  - 2.0.0rc9
+                template:
+                  type: string
+                  enum:
+                  - cross_venue_taker_v1
+                templateVersion:
+                  type: integer
+                  enum:
+                  - 1
+                mode:
+                  type: string
+                  enum:
+                  - paper
+                pair:
+                  type: string
+                  enum:
+                  - BTC/USDT
+                  - ETH/USDT
+                  - SOL/USDT
+                seed:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                  maximum: 2147483647
+                venues:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    BINANCE:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        quoteBalance:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '10000'
+                        baseBalance:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '0.1'
+                        takerFeeBps:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '10'
+                        latencyMs:
+                          type: integer
+                          minimum: 0
+                          default: 50
+                          maximum: 60000
+                    OKX:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        quoteBalance:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '10000'
+                        baseBalance:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '0.1'
+                        takerFeeBps:
+                          type: string
+                          pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                          maxLength: 48
+                          default: '10'
+                        latencyMs:
+                          type: integer
+                          minimum: 0
+                          default: 50
+                          maximum: 60000
+                  required:
+                  - BINANCE
+                  - OKX
+                strategy:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    notional:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '100'
+                    minEdgeBps:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '5'
+                    maxQuoteAgeMs:
+                      type: integer
+                      minimum: 1
+                      default: 500
+                      maximum: 60000
+                    protectionBps:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '5'
+                    timeoutMs:
+                      type: integer
+                      minimum: 1
+                      default: 2000
+                      maximum: 60000
+                    compensationBps:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '20'
+                risk:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    maxExposureQuote:
+                      type: string
+                      pattern: ^(?:0|[0-9]+)(?:\.[0-9]+)?$
+                      maxLength: 48
+                      default: '200'
+                    maxCycles:
+                      type: integer
+                      minimum: 1
+                      default: 100000
+                      maximum: 1000000
+              required:
+              - mode
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          type: string
+          maxLength: 120
+        description: Scoped by authenticated user and job kind; reuse with another
+          config returns 409.
+      operationId: postApiArbitragePaperSessions
+      summary: Post Api Arbitrage Paper Sessions
+      x-visibility: internal
+  /api/arbitrage/paper-sessions/{run_id}/stop:
+    post:
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanErrorEnvelope'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanSuccessEnvelope'
+      tags:
+      - Strategy
+      operationId: postApiArbitragePaperSessionsRunIdStop
+      summary: Post Api Arbitrage Paper Sessions Run Id Stop
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      x-visibility: internal
+    parameters:
+    - in: path
+      name: run_id
+      required: true
+      schema:
+        type: string
+        minLength: 1
   /api/strategy-evolution/parameter-space:
     get:
       responses:

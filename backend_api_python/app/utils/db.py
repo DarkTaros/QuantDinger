@@ -426,6 +426,14 @@ def _apply_init_sql(logger, *, strict: bool = False):
                 path=Path(__file__).resolve().parent.parent.parent / "migrations" / "20261111_strategy_runtime_epoch.sql",
             )
             _apply_migration_component(
+                conn, logger, name="arbitrage-20261116",
+                path=Path(__file__).resolve().parent.parent.parent / "migrations" / "20261116_arbitrage.sql",
+            )
+            _apply_migration_component(
+                conn, logger, name="arbitrage-series-20261116",
+                path=Path(__file__).resolve().parent.parent.parent / "migrations" / "20261116_arbitrage_series.sql",
+            )
+            _apply_migration_component(
                 conn,
                 logger,
                 name="market-symbols-master",

@@ -1,0 +1,45 @@
+# Merge with docker-compose.yml; start only this optional profile's services.
+x-arbitrage: &arbitrage
+  profiles: [arbitrage]
+  build:
+    context: .
+    dockerfile: nautilus_runtime/Dockerfile
+  image: quantdinger-nautilus:2.0.0rc9
+  restart: unless-stopped
+  init: true
+  stop_grace_period: 40s
+  environment:
+    DATABASE_URL: postgresql://${POSTGRES_USER:-quantdinger}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-quantdinger}
+    CELERY_REDIS_HOST: redis-jobs
+    CELERY_REDIS_PORT: 6379
+    CELERY_REDIS_PASSWORD: ${CELERY_REDIS_PASSWORD:-}
+    CRYPTOHFTDATA_API_KEY: ${CRYPTOHFTDATA_API_KEY:-}
+    ARB_DATA_DIR: /data/arbitrage
+    ARB_QUOTA_BYTES: ${ARB_QUOTA_BYTES:-107374182400}
+    ARB_HTTP_PROXY: ${ARB_HTTP_PROXY:-}
+  volumes:
+    - arbitrage-data:/data/arbitrage
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis-jobs:
+      condition: service_healthy
+    migration:
+      condition: service_completed_successfully
+  networks:
+    - quantdinger-network
+services:
+  backend:
+    environment:
+      ARBITRAGE_ENABLED: ${ARBITRAGE_ENABLED:-false}
+  arbitrage-supervisor:
+    <<: *arbitrage
+    command: [python, -m, qd_nautilus.supervisor]
+  arbitrage-backtest:
+    <<: *arbitrage
+    command: [celery, -A, qd_nautilus.worker:app, worker, -Q, arbitrage_backtest, --concurrency=1, --loglevel=INFO, --hostname=arbitrage-backtest@%h]
+  arbitrage-import:
+    <<: *arbitrage
+    command: [celery, -A, qd_nautilus.worker:app, worker, -Q, arbitrage_import, --concurrency=1, --loglevel=INFO, --hostname=arbitrage-import@%h]
+volumes:
+  arbitrage-data:

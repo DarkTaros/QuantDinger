@@ -19,6 +19,7 @@ def test_feature_flags_parse_explicit_values():
 
     assert flags == {
         "billing_enabled": False,
+        "arbitrage_enabled": False,
         "marketplace_enabled": False,
         "registration_enabled": True,
         "broker_accounts_enabled": False,

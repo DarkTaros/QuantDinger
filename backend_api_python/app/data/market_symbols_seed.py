@@ -57,10 +57,16 @@ def get_hot_symbols(market: str, limit: int = 10) -> List[Dict]:
     try:
         with _get_db_connection() as db:
             cur = db.cursor()
+            # The seed rows carry the curated ``is_hot`` flag, while the
+            # exchange sync may mark those legacy rows inactive after it
+            # writes the current active instrument rows.  Do not require the
+            # seed row itself to be active here; the Crypto symbol resolver
+            # performs the active venue check afterwards.
             cur.execute(
-                f"""
-                SELECT market, symbol, name FROM {_SEARCHABLE_SYMBOLS} s
-                WHERE market = ? AND is_active = 1 AND is_hot = 1
+                """
+                SELECT market, symbol, name
+                FROM qd_market_symbols
+                WHERE market = ? AND is_hot = 1
                 ORDER BY sort_order DESC
                 LIMIT ?
                 """,

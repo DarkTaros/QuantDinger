@@ -447,3 +447,36 @@ def handle_data(context, data):
     assert captured["agent_token_id"] is None
     assert captured["request_payload"]["__user_id"] == 7
     assert captured["request_payload"]["initialCapital"] == 20000
+
+
+def test_human_backtest_submission_defers_contract_compile(app, monkeypatch):
+    """The HTTP submit path must not block on the strategy sandbox."""
+    captured = {}
+
+    def fail_if_compiled(_code):
+        raise AssertionError("contract compilation must run in the worker")
+
+    def submit_job(**kwargs):
+        captured.update(kwargs)
+        return {
+            "job_id": "job-deferred-contract",
+            "status": "queued",
+            "kind": "backtest",
+            "created_at": "2026-01-01T00:00:00Z",
+        }
+
+    monkeypatch.setattr(backtest_center, "compile_strategy_v2", fail_if_compiled)
+    monkeypatch.setattr(backtest_center.agent_jobs, "submit_job", submit_job)
+    payload = {
+        "code": "def initialize(context):\n    context.set_universe(['Crypto:BTC/USDT@spot'])",
+        "startDate": "2026-01-01",
+        "endDate": "2026-01-02",
+    }
+
+    with app.test_request_context("/api/backtest/jobs", method="POST", json=payload):
+        g.user_id = 7
+        response, status = inspect.unwrap(backtest_center.create_strategy_backtest_job)()
+
+    assert status == 202
+    assert response.get_json()["data"]["jobId"] == "job-deferred-contract"
+    assert captured["request_payload"]["code"].startswith("def initialize")

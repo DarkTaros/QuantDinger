@@ -471,6 +471,79 @@ def _assign_windows_process_memory_job(proc: Any, max_memory_mb: int) -> Any:
     return job
 
 
+def _start_macos_memory_guard(proc: Any, max_memory_mb: int):
+    """Best-effort parent-side RSS guard for macOS.
+
+    macOS exposes RLIMIT_AS but rejects lowering it for normal processes, so
+    the worker cannot install the Linux-style address-space ceiling. Keep the
+    same isolation and timeout behavior while polling child RSS from the
+    parent and terminating it when it exceeds the configured budget.
+    """
+    if sys.platform != "darwin":
+        return None, None
+
+    stop = threading.Event()
+    limit_kb = max(128, int(max_memory_mb)) * 1024
+
+    def guard() -> None:
+        import ctypes
+        import struct
+
+        try:
+            libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+            proc_pidinfo = libproc.proc_pidinfo
+            proc_pidinfo.argtypes = [
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_uint64,
+                ctypes.c_void_p,
+                ctypes.c_int,
+            ]
+            proc_pidinfo.restype = ctypes.c_int
+        except (OSError, AttributeError):
+            logger.warning("macOS strategy sandbox memory guard unavailable")
+            return
+
+        while not stop.wait(0.005):
+            if proc.poll() is not None:
+                return
+            try:
+                # PROC_PIDTASKINFO (flavor 4): first two uint64 fields are
+                # virtual and resident bytes. A 96-byte buffer is required by
+                # macOS even though only these fields are used here.
+                info = ctypes.create_string_buffer(96)
+                written = proc_pidinfo(proc.pid, 4, 0, info, 96)
+                if written < 16:
+                    continue
+                virtual_bytes, resident_bytes = struct.unpack_from("QQ", info.raw)
+            except (OSError, ValueError, struct.error):
+                continue
+            # Virtual size on current macOS builds includes a very large
+            # shared address-space reservation; resident bytes are the useful
+            # enforcement signal and still catch real allocations.
+            if resident_bytes > limit_kb * 1024:
+                logger.warning(
+                    "macOS strategy sandbox memory limit exceeded pid=%s virtual_mb=%.1f resident_mb=%.1f limit_mb=%s",
+                    proc.pid,
+                    virtual_bytes / (1024 * 1024),
+                    resident_bytes / (1024 * 1024),
+                    max_memory_mb,
+                )
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+                return
+
+    thread = threading.Thread(
+        target=guard,
+        name="strategy-sandbox-memory-guard",
+        daemon=True,
+    )
+    thread.start()
+    return stop, thread
+
+
 def _close_windows_job(job: Any) -> None:
     if job and sys.platform == "win32":
         import ctypes
@@ -900,7 +973,7 @@ def safe_discover_strategy_isolated(
             "code": str(code or ""),
             "timeout": float(timeout),
             "max_memory_mb": int(max_memory_mb),
-            "parent_memory_limit": sys.platform == "win32",
+            "parent_memory_limit": sys.platform in ("win32", "darwin"),
         }, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     except (TypeError, ValueError) as exc:
         return {
@@ -922,6 +995,8 @@ def safe_discover_strategy_isolated(
     }
     proc = None
     windows_job = None
+    macos_guard = None
+    macos_guard_thread = None
     try:
         with tempfile.TemporaryDirectory(prefix="quantdinger-strategy-discovery-") as temp_dir:
             proc = subprocess.Popen(
@@ -941,6 +1016,7 @@ def safe_discover_strategy_isolated(
                     proc.kill()
                     proc.communicate()
                     raise
+                macos_guard, macos_guard_thread = _start_macos_memory_guard(proc, max_memory_mb)
                 stdout, stderr = proc.communicate(
                     payload,
                     timeout=max(0.1, float(timeout)),
@@ -950,6 +1026,10 @@ def safe_discover_strategy_isolated(
                 proc.communicate()
                 raise
             finally:
+                if macos_guard is not None:
+                    macos_guard.set()
+                if macos_guard_thread is not None:
+                    macos_guard_thread.join(timeout=0.2)
                 _close_windows_job(windows_job)
     except subprocess.TimeoutExpired:
         return {

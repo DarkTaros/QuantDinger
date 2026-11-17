@@ -697,11 +697,20 @@ class BinanceSpotClient(BaseRestClient):
         sym = to_binance_futures_symbol(symbol)
         try:
             data = self._signed_request("GET", "/api/v3/account/commission", params={"symbol": sym})
+            # Keep the provider payload visible for diagnosing account-tier and
+            # permission issues.  The response contains fee data only; never
+            # log the signed request parameters or authentication headers.
+            logger.info(
+                "Binance fee rate raw API response endpoint=/api/v3/account/commission "
+                "symbol=%s response=%s",
+                sym,
+                data,
+            )
             if isinstance(data, dict):
                 rec = data.get("standardCommission") or {}
-                maker = abs(float(rec.get("maker") or 0))
-                taker = abs(float(rec.get("taker") or 0))
-                if maker > 0 or taker > 0:
+                if "maker" in rec or "taker" in rec:
+                    maker = abs(float(rec.get("maker") or 0))
+                    taker = abs(float(rec.get("taker") or 0))
                     return {"maker": maker, "taker": taker}
         except Exception as e:
             logger.warning(f"BinanceSpot get_fee_rate({symbol}, symbol_param={sym}) failed: {e}")

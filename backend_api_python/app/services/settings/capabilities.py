@@ -17,6 +17,7 @@ def get_feature_flags(values: Optional[Mapping[str, str]] = None) -> dict[str, b
     """Return the non-sensitive product capabilities exposed to signed-in clients."""
     return {
         "billing_enabled": _flag(values, "BILLING_ENABLED", False),
+        "arbitrage_enabled": _flag(values, "ARBITRAGE_ENABLED", False),
         "marketplace_enabled": _flag(values, "MARKETPLACE_ENABLED", False),
         "registration_enabled": _flag(values, "ENABLE_REGISTRATION", True),
         "broker_accounts_enabled": _flag(values, "BROKER_ACCOUNTS_ENABLED", True),

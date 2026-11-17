@@ -12,6 +12,7 @@ from app.utils.auth import login_required
 from app.services.market.quotes import get_price_map, get_single_price
 from app.services.market.assets import (
     AssetResolutionError,
+    get_market_asset,
     get_asset_capabilities,
     search_market_assets,
 )
@@ -195,6 +196,16 @@ def get_hot_symbols():
         market = (request.args.get('market') or '').strip()
         limit = int(request.args.get('limit') or 10)
         hot = search_hot_symbols(market=market, limit=limit)
+        if market == 'Crypto':
+            # Hot symbols come from the venue catalog; attach the logical asset
+            # id so the market page can add them to the user watchlist directly.
+            for item in hot:
+                try:
+                    asset = get_market_asset(market='Crypto', symbol=item.get('symbol'), product_type='crypto')
+                except Exception:
+                    asset = None
+                if asset:
+                    item['asset_id'] = asset.get('asset_id')
         return jsonify({'code': 1, 'msg': 'success', 'data': hot})
     except Exception as e:
         logger.error(f"get_hot_symbols failed: {str(e)}")

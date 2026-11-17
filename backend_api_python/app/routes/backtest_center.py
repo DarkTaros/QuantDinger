@@ -108,7 +108,20 @@ def _source(payload: dict[str, Any], user_id: int) -> tuple[str, int | None, int
     return code, source_id, strategy_id, strategy_name
 
 
-def _prepare_run(payload: dict[str, Any], user_id: int) -> dict[str, Any]:
+def _prepare_run(
+    payload: dict[str, Any],
+    user_id: int,
+    *,
+    defer_contract_validation: bool = False,
+) -> dict[str, Any]:
+    """Normalize a backtest request before it is persisted.
+
+    Contract compilation is deliberately optional here.  The HTTP endpoint
+    defers it to the job worker so a slow or resource-limited sandbox cannot
+    leave the browser waiting for a job id forever.  Keeping the default
+    eager validation preserves the helper's synchronous behaviour for callers
+    that use it as a preflight check (and for existing tests/tools).
+    """
     code, source_id, strategy_id, strategy_name = _source(payload, user_id)
     start_raw = str(payload.get("startDate") or "").strip()
     end_raw = str(payload.get("endDate") or "").strip()
@@ -118,11 +131,12 @@ def _prepare_run(payload: dict[str, Any], user_id: int) -> dict[str, Any]:
     end_date = datetime.strptime(end_raw, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
     leverage_enabled = bool(payload.get("leverageEnabled", False))
     leverage = max(1.0, float(payload.get("leverage") or 1)) if leverage_enabled else 1.0
-    manifest = compile_strategy_v2(code).manifest
-    if leverage > 1.0 and not manifest.leverage_allowed:
-        raise ValueError("strategyV2.leverageNotAllowed")
-    if leverage > manifest.max_leverage:
-        raise ValueError("strategyV2.leverageExceedsStrategyLimit")
+    if not defer_contract_validation:
+        manifest = compile_strategy_v2(code).manifest
+        if leverage > 1.0 and not manifest.leverage_allowed:
+            raise ValueError("strategyV2.leverageNotAllowed")
+        if leverage > manifest.max_leverage:
+            raise ValueError("strategyV2.leverageExceedsStrategyLimit")
     return {
         "user_id": user_id,
         "code": code,
@@ -203,7 +217,10 @@ _HUMAN_BACKTEST_JOB_KINDS = frozenset({
 
 
 def _submit_backtest_job(payload: dict[str, Any], user_id: int) -> dict[str, Any]:
-    prepared = _prepare_run(payload, user_id)
+    # Do not compile user strategy code in the request thread.  The worker
+    # emits/persists the contract phase and turns sandbox failures into a
+    # terminal job state that the UI can poll and display.
+    prepared = _prepare_run(payload, user_id, defer_contract_validation=True)
     return agent_jobs.submit_job(
         user_id=user_id,
         agent_token_id=None,
